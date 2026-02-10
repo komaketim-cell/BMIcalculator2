@@ -1,158 +1,130 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>محاسبه شاخص‌های بدنی</title>
-
-  <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>محاسبه شاخص‌های بدنی با LMS</title>
+  <link rel="stylesheet" href="styles.css"/>
 </head>
 <body>
-  <div class="app">
-    <header class="glass">
-      <h1>ابزار محاسبه شاخص‌های بدنی</h1>
-      <p>فرم شمسی + DatePicker واقعی + PDF فارسی RTL + چاپ حرفه‌ای</p>
-    </header>
 
-    <section class="glass form">
+  <header class="app-header">
+    <h1>ابزار محاسبه شاخص‌های بدنی با LMS</h1>
+    <p>نسخه آفلاین بدون CDN، با تاریخ شمسی و چاپ حرفه‌ای</p>
+  </header>
+
+  <main class="container">
+
+    <section class="card">
+      <h2>فرم اطلاعات</h2>
+
       <div class="grid">
         <div class="field">
+          <label>نام و نام خانوادگی</label>
+          <input id="fullName" type="text" placeholder="مثلاً: علی رضایی">
+        </div>
+
+        <div class="field">
           <label>جنسیت</label>
-          <select id="sex">
-            <option value="female">دختر</option>
-            <option value="male">پسر</option>
+          <select id="gender">
+            <option value="boy">پسر</option>
+            <option value="girl">دختر</option>
           </select>
         </div>
 
         <div class="field">
-          <label>وزن (کیلوگرم)</label>
-          <input id="weight" type="number" step="0.1" placeholder="مثلاً 45" />
+          <label>تاریخ تولد (شمسی)</label>
+          <input id="birthJalali" type="text" placeholder="مثلاً 1398/05/12">
+        </div>
+
+        <div class="field">
+          <label>تاریخ اندازه‌گیری (شمسی)</label>
+          <input id="measureJalali" type="text" placeholder="مثلاً 1404/11/21">
+          <small class="hint">اگر خالی بماند، تاریخ امروز شمسی ثبت می‌شود.</small>
         </div>
 
         <div class="field">
           <label>قد (سانتی‌متر)</label>
-          <input id="height" type="number" step="0.1" placeholder="مثلاً 155" />
+          <input id="heightCm" type="number" step="0.1" placeholder="مثلاً 120">
         </div>
 
         <div class="field">
-          <label>تاریخ تولد (شمسی)</label>
-          <input id="birthJ" type="text" class="p-date" placeholder="مثلاً 1390/08/12" />
-        </div>
-
-        <div class="field">
-          <label>تاریخ محاسبه (شمسی)</label>
-          <input id="refJ" type="text" class="p-date" placeholder="مثلاً 1404/11/21" />
+          <label>وزن (کیلوگرم)</label>
+          <input id="weightKg" type="number" step="0.1" placeholder="مثلاً 25.5">
         </div>
 
         <div class="field">
           <label>سطح فعالیت</label>
           <select id="activity">
-            <option value="sedentary">خیلی کم‌تحرک</option>
-            <option value="light">کم‌تحرک</option>
-            <option value="moderate" selected>متوسط</option>
-            <option value="active">فعال</option>
-            <option value="very_active">بسیار فعال</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label>هدف</label>
-          <select id="goal">
-            <option value="maintenance" selected>حفظ وزن</option>
-            <option value="gain">افزایش وزن</option>
-            <option value="muscle">افزایش عضله</option>
-            <option value="fatloss">کاهش چربی (بدون افت عضله)</option>
+            <option value="1.2">کم‌تحرک</option>
+            <option value="1.375">سبک</option>
+            <option value="1.55" selected>متوسط</option>
+            <option value="1.725">زیاد</option>
+            <option value="1.9">بسیار زیاد</option>
           </select>
         </div>
       </div>
 
-      <div class="btn-row">
-        <button id="calcBtn">محاسبه</button>
-        <button id="pdfBtn" class="secondary">خروجی PDF فارسی</button>
-        <button id="printBtn" class="secondary">چاپ حرفه‌ای</button>
+      <div class="actions">
+        <button id="btnCalc" class="btn primary">محاسبه</button>
+        <button id="btnReset" class="btn">پاک‌سازی</button>
+        <button id="btnPrint" class="btn ghost">چاپ / ذخیره PDF</button>
       </div>
 
-      <div id="error" class="error"></div>
+      <div id="alertBox" class="alert hidden"></div>
     </section>
 
-    <section class="glass results" id="screenResults">
+    <section class="card">
       <h2>نتایج</h2>
-      <div class="result-grid">
-        <div class="card"><span>سن (سال)</span><b id="ageYears">-</b></div>
-        <div class="card"><span>سن (ماه)</span><b id="ageMonths">-</b></div>
-        <div class="card"><span>BMI</span><b id="bmi">-</b></div>
-        <div class="card"><span>Z-Score</span><b id="zScore">-</b></div>
-        <div class="card"><span>Percentile</span><b id="percentile">-</b></div>
-        <div class="card"><span>وضعیت</span><b id="status">-</b></div>
-        <div class="card"><span>BMR</span><b id="bmr">-</b></div>
-        <div class="card"><span>TDEE</span><b id="tdee">-</b></div>
-      </div>
-
-      <div class="targets">
-        <h3>کالری هدفمند</h3>
-        <ul>
-          <li>حفظ وزن: <b id="t_maint">-</b> kcal</li>
-          <li>افزایش وزن: <b id="t_gain">-</b> kcal</li>
-          <li>افزایش عضله: <b id="t_muscle">-</b> kcal</li>
-          <li>کاهش چربی: <b id="t_loss">-</b> kcal</li>
-        </ul>
-      </div>
-
-      <div class="recs">
-        <h3>توصیه‌ها</h3>
-        <ul id="recsList"></ul>
+      <div class="results" id="results">
+        <div class="result-item"><span>سن (سال):</span><strong id="ageYears">—</strong></div>
+        <div class="result-item"><span>سن (ماه):</span><strong id="ageMonths">—</strong></div>
+        <div class="result-item"><span>BMI:</span><strong id="bmi">—</strong></div>
+        <div class="result-item"><span>Z-Score:</span><strong id="zscore">—</strong></div>
+        <div class="result-item"><span>Percentile:</span><strong id="percentile">—</strong></div>
+        <div class="result-item"><span>وضعیت:</span><strong id="status">—</strong></div>
+        <div class="result-item"><span>BMR:</span><strong id="bmr">—</strong></div>
+        <div class="result-item"><span>TDEE:</span><strong id="tdee">—</strong></div>
       </div>
     </section>
 
-    <section class="print-sheet" id="printSection">
-      <div class="print-header">
-        <div>
-          <h2>گزارش شاخص‌های بدنی</h2>
-          <div class="muted">نسخه چاپی و PDF فارسی</div>
-        </div>
-        <div class="print-meta">
-          <div>تاریخ گزارش: <b id="p_reportDate">-</b></div>
-          <div>تاریخ تولد: <b id="p_birth">-</b></div>
-        </div>
-      </div>
+    <section class="card">
+      <h2>توصیه‌ها</h2>
+      <ul id="tips" class="tips">
+        <li>نتایج پس از محاسبه نمایش داده می‌شوند.</li>
+      </ul>
+    </section>
 
+    <!-- چاپ حرفه‌ای -->
+    <section id="printSheet" class="print-sheet">
+      <h2>گزارش محاسبات شاخص‌های بدنی</h2>
       <div class="print-grid">
-        <div class="p-card">سن (سال): <b id="p_ageYears">-</b></div>
-        <div class="p-card">سن (ماه): <b id="p_ageMonths">-</b></div>
-        <div class="p-card">BMI: <b id="p_bmi">-</b></div>
-        <div class="p-card">Z-Score: <b id="p_z">-</b></div>
-        <div class="p-card">Percentile: <b id="p_pct">-</b></div>
-        <div class="p-card">وضعیت: <b id="p_status">-</b></div>
-        <div class="p-card">BMR: <b id="p_bmr">-</b> kcal</div>
-        <div class="p-card">TDEE: <b id="p_tdee">-</b> kcal</div>
+        <div><span>نام:</span><strong id="p_name">—</strong></div>
+        <div><span>جنسیت:</span><strong id="p_gender">—</strong></div>
+        <div><span>تولد (شمسی):</span><strong id="p_birth">—</strong></div>
+        <div><span>اندازه‌گیری (شمسی):</span><strong id="p_measure">—</strong></div>
+        <div><span>سن (سال):</span><strong id="p_ageYears">—</strong></div>
+        <div><span>سن (ماه):</span><strong id="p_ageMonths">—</strong></div>
+        <div><span>قد:</span><strong id="p_height">—</strong></div>
+        <div><span>وزن:</span><strong id="p_weight">—</strong></div>
+        <div><span>BMI:</span><strong id="p_bmi">—</strong></div>
+        <div><span>Z-Score:</span><strong id="p_z">—</strong></div>
+        <div><span>Percentile:</span><strong id="p_pct">—</strong></div>
+        <div><span>وضعیت:</span><strong id="p_status">—</strong></div>
+        <div><span>BMR:</span><strong id="p_bmr">—</strong></div>
+        <div><span>TDEE:</span><strong id="p_tdee">—</strong></div>
       </div>
 
-      <div class="print-block">
-        <h3>کالری هدفمند</h3>
-        <ul>
-          <li>حفظ وزن: <b id="p_maint">-</b> kcal</li>
-          <li>افزایش وزن: <b id="p_gain">-</b> kcal</li>
-          <li>افزایش عضله: <b id="p_muscle">-</b> kcal</li>
-          <li>کاهش چربی: <b id="p_loss">-</b> kcal</li>
-        </ul>
-      </div>
-
-      <div class="print-block">
-        <h3>توصیه‌ها</h3>
-        <ul id="p_recs"></ul>
-      </div>
-
-      <div class="print-footer">
-        این گزارش صرفاً جهت اطلاع بوده و جایگزین مشاوره تخصصی نیست.
-      </div>
+      <h3>توصیه‌ها</h3>
+      <ul id="p_tips"></ul>
     </section>
-  </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+  </main>
+
+  <footer class="app-footer">
+    <p>© ابزار محاسبه شاخص‌های بدنی با LMS — نسخه آفلاین</p>
+  </footer>
+
   <script src="App.js"></script>
 </body>
 </html>
