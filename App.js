@@ -400,9 +400,8 @@ function d2g(jdn) {
 
 function j2d(jy, jm, jd) {
   jy += 1595;
-  let days = -355668 + (365 * jy) + div(jy, 33) * 8 + div((jy % 33 + 3), 4)
+  return -355668 + (365 * jy) + div(jy, 33) * 8 + div((jy % 33 + 3), 4)
     + jd + (jm < 7 ? (jm - 1) * 31 : (jm - 7) * 30 + 186);
-  return days;
 }
 
 function d2j(jdn) {
@@ -502,28 +501,44 @@ function validateJalaliDate(jy, jm, jd) {
   return true;
 }
 
+/* محاسبه دقیق اختلاف سال/ماه/روز جلالی با گام‌های سالی، ماهی و روزی */
 function ageExactJalali(birthJ, todayJ) {
-  let years = todayJ.jy - birthJ.jy;
-  let months = todayJ.jm - birthJ.jm;
-  let days = todayJ.jd - birthJ.jd;
+  const birthJDN = j2d(birthJ.jy, birthJ.jm, birthJ.jd);
+  const todayJDN = j2d(todayJ.jy, todayJ.jm, todayJ.jd);
+  if (todayJDN < birthJDN) return null;
 
-  if (days < 0) {
-    let prevMonth = todayJ.jm - 1;
-    let prevYear = todayJ.jy;
-    if (prevMonth === 0) {
-      prevMonth = 12;
-      prevYear -= 1;
+  let anchor = { ...birthJ };
+  let years = 0, months = 0;
+
+  // سال‌ها
+  while (true) {
+    const ny = anchor.jy + 1;
+    const nd = Math.min(anchor.jd, jalaliMonthLength(ny, anchor.jm));
+    const next = { jy: ny, jm: anchor.jm, jd: nd };
+    if (j2d(next.jy, next.jm, next.jd) <= todayJDN) {
+      anchor = next;
+      years += 1;
+    } else {
+      break;
     }
-    days += jalaliMonthLength(prevYear, prevMonth);
-    months -= 1;
   }
 
-  if (months < 0) {
-    months += 12;
-    years -= 1;
+  // ماه‌ها
+  while (true) {
+    let ny = anchor.jy;
+    let nm = anchor.jm + 1;
+    if (nm > 12) { nm = 1; ny += 1; }
+    const nd = Math.min(anchor.jd, jalaliMonthLength(ny, nm));
+    const next = { jy: ny, jm: nm, jd: nd };
+    if (j2d(next.jy, next.jm, next.jd) <= todayJDN) {
+      anchor = next;
+      months += 1;
+    } else {
+      break;
+    }
   }
 
-  if (years < 0) return null;
+  const days = todayJDN - j2d(anchor.jy, anchor.jm, anchor.jd);
   return { years, months, days };
 }
 
@@ -574,25 +589,6 @@ function calcZscore(value, L, M, S) {
     return Math.log(value / M) / S;
   }
   return (Math.pow(value / M, L) - 1) / (L * S);
-}
-
-function erf(x) {
-  const sign = x < 0 ? -1 : 1;
-  x = Math.abs(x);
-  const a1 = 0.254829592;
-  const a2 = -0.284496736;
-  const a3 = 1.421413741;
-  const a4 = -1.453152027;
-  const a5 = 1.061405429;
-  const p = 0.3275911;
-  const t = 1 / (1 + p * x);
-  const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
-  return sign * y;
-}
-
-function zToPercentile(z) {
-  const p = 0.5 * (1 + erf(z / Math.SQRT2)) * 100;
-  return Math.max(0, Math.min(100, p));
 }
 
 function childStatusFromZ(z) {
@@ -652,7 +648,7 @@ function buildTips(status, ageGroup) {
       tips.push("چکاپ دوره‌ای برای حفظ سلامت متابولیک.");
     } else if (status === "اضافه‌وزن") {
       tips.push("کاهش حجم وعده‌های پرچرب و افزایش مصرف فیبر (سبزیجات، حبوبات).");
-      tips.push("هدفی برای حداقل ۱۵۰ دقیقه فعالیت هوازی در هفته تعیین کنید.");
+      tips.push("حداقل ۱۵۰ دقیقه فعالیت هوازی در هفته را هدف‌گذاری کنید.");
     } else {
       tips.push("مشاوره با متخصص تغذیه/پزشک برای برنامه کاهش وزن مرحله‌ای.");
       tips.push("افزایش تحرک روزانه و تمرکز بر اصلاح عادات غذایی و خواب.");
@@ -706,6 +702,7 @@ function computeAll() {
   const age = ageFromDates(birthG, todayG);
   if (!age) return showAlert("تاریخ تولد نمی‌تواند بعد از امروز باشد.");
 
+  // سن دقیق با روش اختلاف دقیق جلالی
   const ageExact = ageExactJalali(birthJ, todayJ);
   if (!ageExact) return showAlert("تاریخ تولد نامعتبر است.");
 
@@ -718,8 +715,6 @@ function computeAll() {
   const bmr = calcBMR(weight, height, age.ageYears, gender);
   const tdee = bmr * activity;
 
-  let z = null;
-  let pct = null;
   let status = "";
   let tips = [];
   let ageGroup = "";
@@ -736,8 +731,7 @@ function computeAll() {
       return showAlert(`سن خارج از محدوده داده‌های LMS است. بازه پشتیبانی: ${minAge} تا ${maxAge} ماه.`);
     }
 
-    z = calcZscore(bmi, lmsRow.L, lmsRow.M, lmsRow.S);
-    pct = zToPercentile(z);
+    const z = calcZscore(bmi, lmsRow.L, lmsRow.M, lmsRow.S); // فقط برای تعیین وضعیت
     status = childStatusFromZ(z);
     ageGroup = "child";
     tips = buildTips(status, ageGroup);
@@ -781,12 +775,9 @@ function computeAll() {
   if (calLossLow < minSafe) calLossLow = minSafe;
   if (calLossHigh < calLossLow) calLossHigh = calLossLow;
 
+  // نمایش نتایج (بدون سن اعشاری/ماه و بدون z/صدک)
   $('ageExact').textContent = `${ageExact.years} سال، ${ageExact.months} ماه، ${ageExact.days} روز`;
-  $('ageYears').textContent = age.ageYears.toFixed(2);
-  $('ageMonths').textContent = age.ageMonths.toFixed(1);
   $('bmi').textContent = bmi.toFixed(2);
-  $('zscore').textContent = z !== null ? z.toFixed(2) : "—";
-  $('percentile').textContent = pct !== null ? pct.toFixed(1) + "٪" : "—";
   $('status').textContent = status;
 
   $('bmr').textContent = formatKcal(Math.max(0, bmr));
@@ -806,16 +797,13 @@ function computeAll() {
 
   const birthFormatted = formatJalali(birthYear, birthMonth, birthDay);
 
+  // فیلدهای چاپ
   $('p_gender').textContent = gender === 'boy' ? "پسر" : "دختر";
   $('p_birth').textContent = birthFormatted;
   $('p_ageExact').textContent = `${ageExact.years} سال، ${ageExact.months} ماه، ${ageExact.days} روز`;
-  $('p_ageYears').textContent = age.ageYears.toFixed(2);
-  $('p_ageMonths').textContent = age.ageMonths.toFixed(1);
   $('p_height').textContent = height + " cm";
   $('p_weight').textContent = weight + " kg";
   $('p_bmi').textContent = bmi.toFixed(2);
-  $('p_z').textContent = z !== null ? z.toFixed(2) : "—";
-  $('p_pct').textContent = pct !== null ? pct.toFixed(1) + "٪" : "—";
   $('p_status').textContent = status;
 
   $('p_bmr').textContent = formatKcal(Math.max(0, bmr));
@@ -931,11 +919,7 @@ function resetForm() {
   hideAlert();
 
   $('ageExact').textContent = "—";
-  $('ageYears').textContent = "—";
-  $('ageMonths').textContent = "—";
   $('bmi').textContent = "—";
-  $('zscore').textContent = "—";
-  $('percentile').textContent = "—";
   $('status').textContent = "—";
   $('bmr').textContent = "—";
   $('tdee').textContent = "—";
@@ -948,13 +932,9 @@ function resetForm() {
   $('p_gender').textContent = "—";
   $('p_birth').textContent = "—";
   $('p_ageExact').textContent = "—";
-  $('p_ageYears').textContent = "—";
-  $('p_ageMonths').textContent = "—";
   $('p_height').textContent = "—";
   $('p_weight').textContent = "—";
   $('p_bmi').textContent = "—";
-  $('p_z').textContent = "—";
-  $('p_pct').textContent = "—";
   $('p_status').textContent = "—";
   $('p_bmr').textContent = "—";
   $('p_tdee').textContent = "—";
