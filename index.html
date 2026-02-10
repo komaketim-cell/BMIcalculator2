@@ -1,37 +1,34 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <title>ماشین‌حساب شاخص‌های بدنی</title>
-  <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>محاسبه شاخص‌های بدنی</title>
+  <link rel="stylesheet" href="styles.css"/>
+  <script src="App.js" defer></script>
 </head>
 <body>
+  <div class="container">
+    <h1>محاسبه شاخص‌های بدنی (شمسی)</h1>
 
-  <header class="app-header">
-    <h1>ماشین‌حساب جامع شاخص‌های بدنی</h1>
-    <p>پشتیبانی از تاریخ شمسی، محاسبه بر مبنای داده‌های LMS و استانداردهای بزرگسالان</p>
-  </header>
+    <div id="alertBox" class="alert hidden"></div>
 
-  <main class="container">
+    <div class="card">
+      <h2>اطلاعات ورودی</h2>
 
-    <section class="card">
-      <h2>مشخصات فردی</h2>
-
-      <div id="alertBox" class="alert hidden"></div>
-
-      <div class="form-grid">
-        <label>
-          جنسیت
+      <div class="grid">
+        <div class="field">
+          <label for="gender">جنسیت</label>
           <select id="gender">
             <option value="boy">پسر</option>
             <option value="girl">دختر</option>
           </select>
-        </label>
+        </div>
 
-        <label class="full-row">
-          تاریخ تولد (شمسی)
-          <div class="jalali-date-group">
-            <input type="number" id="birthYear" placeholder="سال" list="yearOptions" min="1200" max="1600">
+        <div class="field">
+          <label>تاریخ تولد (شمسی)</label>
+          <div class="birth-row">
+            <input id="birthYear" type="number" inputmode="numeric" list="yearOptions" placeholder="سال"/>
             <datalist id="yearOptions"></datalist>
 
             <select id="birthMonth">
@@ -42,105 +39,76 @@
               <option value="">روز</option>
             </select>
           </div>
-        </label>
+        </div>
 
-        <label>
-          قد (سانتی‌متر)
-          <input type="number" id="heightCm" min="30" max="250" placeholder="مثال: 110">
-        </label>
+        <div class="field">
+          <label for="heightCm">قد (سانتی‌متر)</label>
+          <input id="heightCm" type="number" inputmode="decimal" placeholder="مثلاً 170"/>
+        </div>
 
-        <label>
-          وزن (کیلوگرم)
-          <input type="number" id="weightKg" min="1" max="250" step="0.1" placeholder="مثال: 20.5">
-        </label>
+        <div class="field">
+          <label for="weightKg">وزن (کیلوگرم)</label>
+          <input id="weightKg" type="number" inputmode="decimal" placeholder="مثلاً 65"/>
+        </div>
 
-        <label>
-          ضریب فعالیت
+        <div class="field">
+          <label for="activity">ضریب فعالیت</label>
           <select id="activity">
-            <option value="1.2">۱٫۲۰ - کم‌تحرک</option>
-            <option value="1.375">۱٫۳۸ - فعالیت سبک</option>
-            <option value="1.55" selected>۱٫۵۵ - فعالیت متوسط</option>
-            <option value="1.725">۱٫۷۳ - فعالیت بالا</option>
-            <option value="1.9">۱٫۹۰ - فعالیت بسیار زیاد</option>
+            <option value="1.2">کم‌تحرک (1.2)</option>
+            <option value="1.375">سبک (1.375)</option>
+            <option value="1.55" selected>متوسط (1.55)</option>
+            <option value="1.725">زیاد (1.725)</option>
+            <option value="1.9">خیلی زیاد (1.9)</option>
           </select>
-        </label>
+        </div>
       </div>
 
       <div class="actions">
         <button id="btnCalc" class="btn primary">محاسبه</button>
-        <button id="btnReset" class="btn ghost">پاک کردن</button>
-        <button id="btnPrint" class="btn outline">چاپ / PDF</button>
+        <button id="btnReset" class="btn">پاک‌سازی</button>
+        <button id="btnPrint" class="btn">چاپ/PDF</button>
       </div>
-    </section>
-
-    <section class="card">
-      <h2>نتایج محاسبه</h2>
-      <div class="results-grid">
-        <div>
-          <span class="label">سن (سال):</span>
-          <span id="ageYears">—</span>
-        </div>
-        <div>
-          <span class="label">سن (ماه):</span>
-          <span id="ageMonths">—</span>
-        </div>
-        <div>
-          <span class="label">BMI:</span>
-          <span id="bmi">—</span>
-        </div>
-        <div>
-          <span class="label">Z-Score:</span>
-          <span id="zscore">—</span>
-        </div>
-        <div>
-          <span class="label">درصد صدک:</span>
-          <span id="percentile">—</span>
-        </div>
-        <div>
-          <span class="label">وضعیت:</span>
-          <span id="status">—</span>
-        </div>
-        <div>
-          <span class="label">BMR:</span>
-          <span id="bmr">—</span>
-        </div>
-        <div>
-          <span class="label">TDEE:</span>
-          <span id="tdee">—</span>
-        </div>
-      </div>
-
-      <h3>پیشنهادها</h3>
-      <ul id="tips" class="tips-list">
-        <li>برای مشاهده توصیه‌ها ابتدا محاسبه را انجام دهید.</li>
-      </ul>
-    </section>
-
-  </main>
-
-  <section id="printArea" class="print-sheet">
-    <h2>گزارش شاخص‌های بدنی</h2>
-    <div class="print-grid">
-      <div><span>جنسیت:</span><strong id="p_gender">—</strong></div>
-      <div><span>تاریخ تولد (شمسی):</span><strong id="p_birth">—</strong></div>
-      <div><span>سن (سال):</span><strong id="p_ageYears">—</strong></div>
-      <div><span>سن (ماه):</span><strong id="p_ageMonths">—</strong></div>
-      <div><span>قد:</span><strong id="p_height">—</strong></div>
-      <div><span>وزن:</span><strong id="p_weight">—</strong></div>
-      <div><span>BMI:</span><strong id="p_bmi">—</strong></div>
-      <div><span>Z-Score:</span><strong id="p_z">—</strong></div>
-      <div><span>درصد صدک:</span><strong id="p_pct">—</strong></div>
-      <div><span>وضعیت:</span><strong id="p_status">—</strong></div>
-      <div><span>BMR:</span><strong id="p_bmr">—</strong></div>
-      <div><span>TDEE:</span><strong id="p_tdee">—</strong></div>
     </div>
 
-    <h3>پیشنهادهای تغذیه‌ای و سبک زندگی</h3>
-    <ul id="p_tips"></ul>
+    <div class="card">
+      <h2>نتایج</h2>
+      <div class="results">
+        <div><span>سن (سال):</span> <strong id="ageYears">—</strong></div>
+        <div><span>سن (ماه):</span> <strong id="ageMonths">—</strong></div>
+        <div><span>BMI:</span> <strong id="bmi">—</strong></div>
+        <div><span>Z-score:</span> <strong id="zscore">—</strong></div>
+        <div><span>صدک:</span> <strong id="percentile">—</strong></div>
+        <div><span>وضعیت:</span> <strong id="status">—</strong></div>
+        <div><span>BMR:</span> <strong id="bmr">—</strong></div>
+        <div><span>TDEE:</span> <strong id="tdee">—</strong></div>
+      </div>
 
-    <p class="print-note">این گزارش صرفاً نقش کمک‌محاسباتی دارد و جایگزین ارزیابی و تشخیص پزشک متخصص نیست.</p>
-  </section>
+      <h3>توصیه‌ها</h3>
+      <ul id="tips">
+        <li>برای مشاهده توصیه‌ها ابتدا محاسبه را انجام دهید.</li>
+      </ul>
+    </div>
 
-  <script src="App.js"></script>
+    <div class="card print">
+      <h2>گزارش چاپی</h2>
+      <div class="print-grid">
+        <div><span>جنسیت:</span> <strong id="p_gender">—</strong></div>
+        <div><span>تاریخ تولد:</span> <strong id="p_birth">—</strong></div>
+        <div><span>سن (سال):</span> <strong id="p_ageYears">—</strong></div>
+        <div><span>سن (ماه):</span> <strong id="p_ageMonths">—</strong></div>
+        <div><span>قد:</span> <strong id="p_height">—</strong></div>
+        <div><span>وزن:</span> <strong id="p_weight">—</strong></div>
+        <div><span>BMI:</span> <strong id="p_bmi">—</strong></div>
+        <div><span>Z-score:</span> <strong id="p_z">—</strong></div>
+        <div><span>صدک:</span> <strong id="p_pct">—</strong></div>
+        <div><span>وضعیت:</span> <strong id="p_status">—</strong></div>
+        <div><span>BMR:</span> <strong id="p_bmr">—</strong></div>
+        <div><span>TDEE:</span> <strong id="p_tdee">—</strong></div>
+      </div>
+
+      <h3>توصیه‌ها</h3>
+      <ul id="p_tips"></ul>
+    </div>
+  </div>
 </body>
 </html>
