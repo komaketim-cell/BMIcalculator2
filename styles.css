@@ -98,11 +98,21 @@ h1, h2, h3 {
   gap: 8px;
 }
 
+/* گزارش چاپی فقط هنگام چاپ/PDF نمایش داده شود */
+.card.print {
+  display: none;
+}
+
 @media print {
   .actions, #alertBox {
     display: none !important;
   }
+  /* فقط کارت چاپی نمایش داده شود */
+  .card:not(.print) {
+    display: none !important;
+  }
   .card.print {
+    display: block !important;
     page-break-inside: avoid;
   }
 }
