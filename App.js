@@ -735,7 +735,6 @@ function computeAll() {
   $('p_tdee').textContent = tdee.toFixed(0) + " kcal";
 
   const pTips = $('p_tips');
-t;
   pTips.innerHTML = "";
   tips.forEach(t => {
     const li = document.createElement('li');
