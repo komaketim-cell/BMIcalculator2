@@ -1,118 +1,111 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fa" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>محاسبه شاخص‌های بدنی (شمسی)</title>
-  <link rel="stylesheet" href="styles.css"/>
-  <script src="App.js" defer></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>محاسبه BMI، BMR، TDEE و سن دقیق | کمکتیم</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="container">
-    <h1>محاسبه شاخص‌های بدنی (شمسی)</h1>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-title">کمکتیم | Komaketim.ir</span>
+    </div>
+  </header>
 
-    <div id="alertBox" class="alert hidden"></div>
+  <main class="page">
+    <section class="hero">
+      <div class="hero-card">
+        <h1>محاسبه BMI، BMR، TDEE و سن دقیق</h1>
+        <p>با وارد کردن تاریخ تولد شمسی، قد، وزن و سطح فعالیت، نتایج دقیق و قابل دانلود دریافت کنید.</p>
+      </div>
+    </section>
 
-    <div class="card">
-      <h2>اطلاعات ورودی</h2>
+    <section class="calculator">
+      <div class="card glass">
+        <h2>اطلاعات پایه</h2>
 
-      <div class="grid">
         <div class="field">
-          <label for="gender">جنسیت</label>
-          <select id="gender">
-            <option value="boy">پسر</option>
-            <option value="girl">دختر</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label>تاریخ تولد (شمسی)</label>
-          <div class="birth-row">
-            <input id="birthYear" type="number" inputmode="numeric" list="yearOptions" placeholder="سال"/>
-            <datalist id="yearOptions"></datalist>
-
-            <select id="birthMonth">
-              <option value="">ماه</option>
-            </select>
-
-            <select id="birthDay">
-              <option value="">روز</option>
-            </select>
+          <label>جنسیت</label>
+          <div class="gender-group">
+            <button type="button" class="gender-btn active" data-gender="male">پسر</button>
+            <button type="button" class="gender-btn" data-gender="female">دختر</button>
           </div>
         </div>
 
         <div class="field">
-          <label for="heightCm">قد (سانتی‌متر)</label>
-          <input id="heightCm" type="number" inputmode="decimal" placeholder="مثلاً 170"/>
+          <label>تاریخ تولد (شمسی)</label>
+          <div class="dob-grid">
+            <div>
+              <input id="dobYear" type="text" placeholder="سال" list="yearList" />
+              <datalist id="yearList"></datalist>
+            </div>
+            <div>
+              <select id="dobMonth">
+                <option value="">ماه</option>
+                <option value="1">فروردین</option>
+                <option value="2">اردیبهشت</option>
+                <option value="3">خرداد</option>
+                <option value="4">تیر</option>
+                <option value="5">مرداد</option>
+                <option value="6">شهریور</option>
+                <option value="7">مهر</option>
+                <option value="8">آبان</option>
+                <option value="9">آذر</option>
+                <option value="10">دی</option>
+                <option value="11">بهمن</option>
+                <option value="12">اسفند</option>
+              </select>
+            </div>
+            <div>
+              <select id="dobDay">
+                <option value="">روز</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="field two-col">
+          <div>
+            <label>قد (سانتی‌متر)</label>
+            <input id="heightInput" type="number" placeholder="مثلاً 160" />
+          </div>
+          <div>
+            <label>وزن (کیلوگرم)</label>
+            <input id="weightInput" type="number" placeholder="مثلاً 55" />
+          </div>
         </div>
 
         <div class="field">
-          <label for="weightKg">وزن (کیلوگرم)</label>
-          <input id="weightKg" type="number" inputmode="decimal" placeholder="مثلاً 65"/>
-        </div>
-
-        <div class="field">
-          <label for="activity">ضریب فعالیت</label>
-          <select id="activity">
-            <option value="1.2">کم‌تحرک (1.2)</option>
-            <option value="1.375">سبک (1.375)</option>
-            <option value="1.55" selected>متوسط (1.55)</option>
-            <option value="1.725">زیاد (1.725)</option>
-            <option value="1.9">خیلی زیاد (1.9)</option>
+          <label>سطح فعالیت</label>
+          <select id="activityLevel">
+            <option value="1.2">بی‌تحرک</option>
+            <option value="1.375">فعالیت سبک</option>
+            <option value="1.55" selected>فعالیت متوسط</option>
+            <option value="1.725">فعال</option>
+            <option value="1.9">بسیار فعال</option>
           </select>
         </div>
+
+        <button id="calculateBtn" class="primary-btn">محاسبه خودکار</button>
       </div>
 
-      <div class="actions">
-        <button id="btnCalc" class="btn primary">محاسبه</button>
-        <button id="btnReset" class="btn">پاک‌سازی</button>
-        <button id="btnPrint" class="btn">چاپ/PDF</button>
+      <div class="card results glass" id="reportCard">
+        <h2>نتایج</h2>
+        <div id="exactAgeResult" class="result-line">سن دقیق: -</div>
+        <div id="bmiResult" class="result-box">BMI: -</div>
+        <div id="growthResult" class="result-box">ارزیابی رشد: -</div>
+        <div id="metabolismResult" class="result-box">BMR/TDEE: -</div>
+
+        <button id="downloadPDF" class="ghost-btn">دانلود نتایح (PDF)</button>
       </div>
-    </div>
+    </section>
+  </main>
 
-    <div class="card">
-      <h2>نتایج</h2>
-      <div class="results">
-        <div><span>سن دقیق (سال/ماه/روز):</span> <strong id="ageExact">—</strong></div>
-        <div><span>BMI:</span> <strong id="bmi">—</strong></div>
-        <div><span>وضعیت:</span> <strong id="status">—</strong></div>
-        <div><span>سوخت‌وساز پایه (BMR):</span> <strong id="bmr">—</strong></div>
-        <div><span>انرژی مصرفی روزانه (TDEE):</span> <strong id="tdee">—</strong></div>
-        <div><span>میزان اضافه/کمبود وزن:</span> <strong id="weightDelta">—</strong></div>
-        <div><span>کالری ثابت نگه داشتن وزن:</span> <strong id="calMaintain">—</strong></div>
-        <div><span>کالری افزایش وزن/عضله:</span> <strong id="calGain">—</strong></div>
-        <div><span>کالری کاهش وزن بدون افت عضله:</span> <strong id="calLoss">—</strong></div>
-      </div>
+  <div id="toast" class="toast"></div>
 
-      <h3>توصیه‌ها</h3>
-      <ul id="tips">
-        <li>برای مشاهده توصیه‌ها ابتدا محاسبه را انجام دهید.</li>
-      </ul>
-    </div>
-
-    <!-- گزارش چاپی: فقط هنگام چاپ/PDF نمایش داده می‌شود -->
-    <div class="card print">
-      <h2>گزارش چاپی</h2>
-      <div class="print-grid">
-        <div><span>جنسیت:</span> <strong id="p_gender">—</strong></div>
-        <div><span>تاریخ تولد:</span> <strong id="p_birth">—</strong></div>
-        <div><span>سن دقیق (سال/ماه/روز):</span> <strong id="p_ageExact">—</strong></div>
-        <div><span>قد:</span> <strong id="p_height">—</strong></div>
-        <div><span>وزن:</span> <strong id="p_weight">—</strong></div>
-        <div><span>BMI:</span> <strong id="p_bmi">—</strong></div>
-        <div><span>وضعیت:</span> <strong id="p_status">—</strong></div>
-
-        <div><span>سوخت‌وساز پایه (BMR):</span> <strong id="p_bmr">—</strong></div>
-        <div><span>انرژی مصرفی روزانه (TDEE):</span> <strong id="p_tdee">—</strong></div>
-        <div><span>میزان اضافه/کمبود وزن:</span> <strong id="p_weightDelta">—</strong></div>
-        <div><span>کالری ثابت نگه داشتن وزن:</span> <strong id="p_calMaintain">—</strong></div>
-        <div><span>کالری افزایش وزن/عضله:</span> <strong id="p_calGain">—</strong></div>
-        <div><span>کالری کاهش وزن بدون افت عضله:</span> <strong id="p_calLoss">—</strong></div>
-      </div>
-
-      <h3>توصیه‌ها</h3>
-      <ul id="p_tips"></ul>
-    </div>
-  </div>
+  <script src="js/html2pdf.bundle.min.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>
