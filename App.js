@@ -450,11 +450,14 @@ const $ = id => document.getElementById(id);
 
 function showAlert(msg) {
   const box = $('alertBox');
+  if (!box) return;
   box.textContent = msg;
   box.classList.remove('hidden');
 }
 function hideAlert() {
-  $('alertBox').classList.add('hidden');
+  const box = $('alertBox');
+  if (!box) return;
+  box.classList.add('hidden');
 }
 
 function pad2(n) {
@@ -525,9 +528,9 @@ function findLMS(ageMonths, data) {
   }
 
   let lower = null, upper = null;
-  for (const row of data) {
-    if (row.age <= ageMonths) lower = row;
-    if (row.age >= ageMonths) { upper = row; break; }
+  for (const rowrow of data) {
+    if (Rrow.age <= ageMonths) lower = Rrow;
+    if (Rrow.age >= ageMonths) { upper = Rrow; break; }
   }
   if (!lower || !upper) return null;
   if (lower.age === upper.age) return lower;
@@ -626,7 +629,6 @@ function buildTips(status, ageGroup) {
       tips.push("افزایش تحرک روزانه و تمرکز بر اصلاح عادات غذایی و خواب.");
     }
   }
-
   return tips;
 }
 
@@ -636,13 +638,21 @@ function buildTips(status, ageGroup) {
 function computeAll() {
   hideAlert();
 
-  const gender = $('gender').value;
-  const birthYear = parseInt($('birthYear').value, 10);
-  const birthMonth = parseInt($('birthMonth').value, 10);
-  const birthDay = parseInt($('birthDay').value, 10);
-  const height = parseFloat($('heightCm').value);
-  const weight = parseFloat($('weightKg').value);
-  const activity = parseFloat($('activity').value);
+  const gender = $('gender')?.value;
+  const birthYearEl = $('birthYear');
+  const birthMonthEl = $('birthMonth');
+  const birthDayEl = $('birthDay');
+
+  if (!birthYearEl || !birthMonthEl || !birthDayEl) {
+    return showAlert("کنترل‌های تاریخ تولد در صفحه پیدا نشدند. لطفاً IDها را بررسی کنید.");
+  }
+
+  const birthYear = parseInt(birthYearEl.value, 10);
+  const birthMonth = parseInt(birthMonthEl.value, 10);
+  const birthDay = parseInt(birthDayEl.value, 10);
+  const height = parseFloat($('heightCm')?.value);
+  const weight = parseFloat($('weightKg')?.value);
+  const activity = parseFloat($('activity')?.value);
 
   if (!Number.isInteger(birthYear) || !Number.isInteger(birthMonth) || !Number.isInteger(birthDay)) {
     return showAlert("سال، ماه و روز تولد را کامل انتخاب یا وارد کنید.");
@@ -748,6 +758,7 @@ function computeAll() {
  *************************************/
 function populateMonthSelect() {
   const monthSelect = $('birthMonth');
+  if (!monthSelect) return;
   monthSelect.innerHTML = '<option value="">ماه</option>';
   JALALI_MONTHS.forEach(m => {
     const option = document.createElement('option');
@@ -760,6 +771,7 @@ function populateMonthSelect() {
 function populateYearDatalist() {
   const yearInput = $('birthYear');
   const datalist = $('yearOptions');
+  if (!yearInput || !datalist) return;
   datalist.innerHTML = "";
   const today = new Date();
   const todayJ = toJalali(today.getFullYear(), today.getMonth() + 1, today.getDate());
@@ -773,6 +785,7 @@ function populateYearDatalist() {
 
 function populateDaySelect(year, month, keepValue = null) {
   const daySelect = $('birthDay');
+  if (!daySelect) return;
   daySelect.innerHTML = '<option value="">روز</option>';
 
   let length = 31;
@@ -797,13 +810,18 @@ function populateDaySelect(year, month, keepValue = null) {
 }
 
 function initBirthDateControls() {
-  populateMonthSelect();
-  populateYearDatalist();
-  populateDaySelect(null, null);
-
   const yearInput = $('birthYear');
   const monthSelect = $('birthMonth');
   const daySelect = $('birthDay');
+
+  if (!yearInput || !monthSelect || !daySelect) {
+    console.error("Birth date controls not found:", { yearInput, monthSelect, daySelect });
+    return;
+  }
+
+  populateMonthSelect();
+  populateYearDatalist();
+  populateDaySelect(null, null);
 
   const updateDays = () => {
     const keep = parseInt(daySelect.value, 10);
@@ -859,7 +877,7 @@ function resetForm() {
 document.addEventListener('DOMContentLoaded', () => {
   initBirthDateControls();
 
-  $('btnCalc').addEventListener('click', computeAll);
-  $('btnReset').addEventListener('click', resetForm);
-  $('btnPrint').addEventListener('click', () => window.print());
+  $('btnCalc')?.addEventListener('click', computeAll);
+  $('btnReset')?.addEventListener('click', resetForm);
+  $('btnPrint')?.addEventListener('click', () => window.print());
 });
