@@ -376,7 +376,7 @@ const LMS_GIRLS = parseLMS(LMS_GIRLS_RAW);
 const LMS_BOYS = parseLMS(LMS_BOYS_RAW);
 
 /*************************************
- * 3) توابع جلالی ⇄ میلادی (بدون کتابخانه)
+ * 3) توابع جلالی ⇄ میلادی
  *************************************/
 function div(a, b) { return ~~(a / b); }
 
@@ -479,7 +479,7 @@ function ageFromDates(birthG, measureG) {
   if (diffDays < 0) return null;
   const ageMonths = diffDays / 30.4375;
   const ageYears = diffDays / 365.25;
-  return { ageMonths, ageYears };
+  return { ageMonths, ageYears, diffDays };
 }
 
 function isJalaliLeapYear(jy) {
@@ -500,6 +500,31 @@ function validateJalaliDate(jy, jm, jd) {
   const maxDay = jalaliMonthLength(jy, jm);
   if (jd < 1 || jd > maxDay) return false;
   return true;
+}
+
+function ageExactJalali(birthJ, todayJ) {
+  let years = todayJ.jy - birthJ.jy;
+  let months = todayJ.jm - birthJ.jm;
+  let days = todayJ.jd - birthJ.jd;
+
+  if (days < 0) {
+    let prevMonth = todayJ.jm - 1;
+    let prevYear = todayJ.jy;
+    if (prevMonth === 0) {
+      prevMonth = 12;
+      prevYear -= 1;
+    }
+    days += jalaliMonthLength(prevYear, prevMonth);
+    months -= 1;
+  }
+
+  if (months < 0) {
+    months += 12;
+    years -= 1;
+  }
+
+  if (years < 0) return null;
+  return { years, months, days };
 }
 
 const JALALI_MONTHS = [
@@ -528,9 +553,9 @@ function findLMS(ageMonths, data) {
   }
 
   let lower = null, upper = null;
-  for (const rowrow of data) {
-    if (Rrow.age <= ageMonths) lower = Rrow;
-    if (Rrow.age >= ageMonths) { upper = Rrow; break; }
+  for (const row of data) {
+    if (row.age <= ageMonths) lower = row;
+    if (row.age >= ageMonths) { upper = row; break; }
   }
   if (!lower || !upper) return null;
   if (lower.age === upper.age) return lower;
@@ -594,6 +619,10 @@ function adultStatusFromBMI(bmi) {
 function calcBMR(weight, height, ageYears, gender) {
   const s = gender === 'boy' ? 5 : -161;
   return 10 * weight + 6.25 * height - 5 * ageYears + s;
+}
+
+function formatKcal(x) {
+  return Math.round(x) + " kcal";
 }
 
 /*************************************
@@ -663,6 +692,7 @@ function computeAll() {
   if (isNaN(height) || height <= 0) return showAlert("قد نامعتبر است.");
   if (isNaN(weight) || weight <= 0) return showAlert("وزن نامعتبر است.");
 
+  const birthJ = { jy: birthYear, jm: birthMonth, jd: birthDay };
   const birthG = toGregorian(birthYear, birthMonth, birthDay);
 
   const today = new Date();
@@ -671,9 +701,13 @@ function computeAll() {
     gm: today.getMonth() + 1,
     gd: today.getDate()
   };
+  const todayJ = toJalali(todayG.gy, todayG.gm, todayG.gd);
 
   const age = ageFromDates(birthG, todayG);
   if (!age) return showAlert("تاریخ تولد نمی‌تواند بعد از امروز باشد.");
+
+  const ageExact = ageExactJalali(birthJ, todayJ);
+  if (!ageExact) return showAlert("تاریخ تولد نامعتبر است.");
 
   const ageMonths = age.ageMonths;
   if (ageMonths < 61) {
@@ -689,6 +723,7 @@ function computeAll() {
   let status = "";
   let tips = [];
   let ageGroup = "";
+  let weightDeltaText = "—";
 
   if (ageMonths <= 228) {
     const data = gender === 'boy' ? LMS_BOYS : LMS_GIRLS;
@@ -706,20 +741,60 @@ function computeAll() {
     status = childStatusFromZ(z);
     ageGroup = "child";
     tips = buildTips(status, ageGroup);
+
+    const targetBMI = lmsRow.M;
+    const targetWeight = targetBMI * Math.pow(height / 100, 2);
+    const diff = weight - targetWeight;
+    if (Math.abs(diff) < 0.1) {
+      weightDeltaText = "وزن مناسب (نزدیک به میانه رشد)";
+    } else if (diff > 0) {
+      weightDeltaText = `اضافه‌وزن حدود ${diff.toFixed(1)} کیلوگرم`;
+    } else {
+      weightDeltaText = `کمبود وزن حدود ${Math.abs(diff).toFixed(1)} کیلوگرم`;
+    }
   } else {
     status = adultStatusFromBMI(bmi);
     ageGroup = "adult";
     tips = buildTips(status, ageGroup);
+
+    if (bmi < 18.5) {
+      const targetWeight = 18.5 * Math.pow(height / 100, 2);
+      const diff = weight - targetWeight;
+      weightDeltaText = `کمبود وزن حدود ${Math.abs(diff).toFixed(1)} کیلوگرم`;
+    } else if (bmi > 24.9) {
+      const targetWeight = 24.9 * Math.pow(height / 100, 2);
+      const diff = weight - targetWeight;
+      weightDeltaText = `اضافه‌وزن حدود ${diff.toFixed(1)} کیلوگرم`;
+    } else {
+      weightDeltaText = "وزن مناسب (در محدوده سالم)";
+    }
   }
 
+  const calMaintain = tdee;
+  let calGainLow = tdee + 300;
+  let calGainHigh = tdee + 500;
+
+  let calLossHigh = tdee - 300;
+  let calLossLow = tdee - 500;
+
+  const minSafe = Math.max(bmr, 1200);
+  if (calLossLow < minSafe) calLossLow = minSafe;
+  if (calLossHigh < calLossLow) calLossHigh = calLossLow;
+
+  $('ageExact').textContent = `${ageExact.years} سال، ${ageExact.months} ماه، ${ageExact.days} روز`;
   $('ageYears').textContent = age.ageYears.toFixed(2);
   $('ageMonths').textContent = age.ageMonths.toFixed(1);
   $('bmi').textContent = bmi.toFixed(2);
   $('zscore').textContent = z !== null ? z.toFixed(2) : "—";
   $('percentile').textContent = pct !== null ? pct.toFixed(1) + "٪" : "—";
   $('status').textContent = status;
-  $('bmr').textContent = bmr.toFixed(0) + " kcal";
-  $('tdee').textContent = tdee.toFixed(0) + " kcal";
+
+  $('bmr').textContent = formatKcal(Math.max(0, bmr));
+  $('tdee').textContent = formatKcal(Math.max(0, tdee));
+  $('weightDelta').textContent = weightDeltaText;
+  $('calMaintain').textContent = formatKcal(calMaintain);
+  $('calGain').textContent = `${formatKcal(calGainLow)} تا ${formatKcal(calGainHigh)}`;
+  $('calLoss').textContent = `${formatKcal(calLossLow)} تا ${formatKcal(calLossHigh)}`;
 
   const tipsUL = $('tips');
   tipsUL.innerHTML = "";
@@ -733,6 +808,7 @@ function computeAll() {
 
   $('p_gender').textContent = gender === 'boy' ? "پسر" : "دختر";
   $('p_birth').textContent = birthFormatted;
+  $('p_ageExact').textContent = `${ageExact.years} سال، ${ageExact.months} ماه، ${ageExact.days} روز`;
   $('p_ageYears').textContent = age.ageYears.toFixed(2);
   $('p_ageMonths').textContent = age.ageMonths.toFixed(1);
   $('p_height').textContent = height + " cm";
@@ -741,8 +817,13 @@ function computeAll() {
   $('p_z').textContent = z !== null ? z.toFixed(2) : "—";
   $('p_pct').textContent = pct !== null ? pct.toFixed(1) + "٪" : "—";
   $('p_status').textContent = status;
-  $('p_bmr').textContent = bmr.toFixed(0) + " kcal";
-  $('p_tdee').textContent = tdee.toFixed(0) + " kcal";
+
+  $('p_bmr').textContent = formatKcal(Math.max(0, bmr));
+  $('p_tdee').textContent = formatKcal(Math.max(0, tdee));
+  $('p_weightDelta').textContent = weightDeltaText;
+  $('p_calMaintain').textContent = formatKcal(calMaintain);
+  $('p_calGain').textContent = `${formatKcal(calGainLow)} تا ${formatKcal(calGainHigh)}`;
+  $('p_calLoss').textContent = `${formatKcal(calLossLow)} تا ${formatKcal(calLossHigh)}`;
 
   const pTips = $('p_tips');
   pTips.innerHTML = "";
@@ -849,6 +930,7 @@ function resetForm() {
 
   hideAlert();
 
+  $('ageExact').textContent = "—";
   $('ageYears').textContent = "—";
   $('ageMonths').textContent = "—";
   $('bmi').textContent = "—";
@@ -857,10 +939,15 @@ function resetForm() {
   $('status').textContent = "—";
   $('bmr').textContent = "—";
   $('tdee').textContent = "—";
+  $('weightDelta').textContent = "—";
+  $('calMaintain').textContent = "—";
+  $('calGain').textContent = "—";
+  $('calLoss').textContent = "—";
   $('tips').innerHTML = '<li>برای مشاهده توصیه‌ها ابتدا محاسبه را انجام دهید.</li>';
 
   $('p_gender').textContent = "—";
   $('p_birth').textContent = "—";
+  $('p_ageExact').textContent = "—";
   $('p_ageYears').textContent = "—";
   $('p_ageMonths').textContent = "—";
   $('p_height').textContent = "—";
@@ -871,6 +958,10 @@ function resetForm() {
   $('p_status').textContent = "—";
   $('p_bmr').textContent = "—";
   $('p_tdee').textContent = "—";
+  $('p_weightDelta').textContent = "—";
+  $('p_calMaintain').textContent = "—";
+  $('p_calGain').textContent = "—";
+  $('p_calLoss').textContent = "—";
   $('p_tips').innerHTML = "";
 }
 
