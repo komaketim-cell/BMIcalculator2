@@ -1,7 +1,13 @@
-// =======================
-// LMS RAW TABLES (AS SENT)
-// =======================
-const LMS_RAW_GIRLS = `
+/*************************************
+ * 1) داده‌های LMS (اینجا قرار دهید)
+ *************************************/
+
+// قالب پیشنهادی:
+// هر خط: ageMonths, L, M, S
+// مثال: 60, -2.049, 15.3, 0.1
+// اگر در داده‌ها از "/" به‌جای "." استفاده می‌کنید، خودِ کد اصلاح می‌کند.
+
+const LMS_GIRLS_RAW = `
 Month	L	M	S
 61	-0/8886	15/2441	0/09692
 62	-0/9068	15/2434	0/09738
@@ -173,7 +179,7 @@ Month	L	M	S
 228	-0/7496	21/4269	0/14441
 `;
 
-const LMS_RAW_BOYS = `
+const LMS_BOYS_RAW = `
 Month	L	M	S
 61	-0/7387	15/2641	0/0839
 62	-0/7621	15/2616	0/08414
@@ -345,473 +351,353 @@ Month	L	M	S
 228	-0/8419	22/1883	0/12948
 `;
 
-// =======================
-// HELPERS
-// =======================
-const toNumber = (v) => {
-  if (typeof v === "number") return v;
-  if (!v) return NaN;
-  return parseFloat(String(v).replace(/\//g, "."));
-};
+/*************************************
+ * 2) تبدیل داده خام LMS به آرایه
+ *************************************/
+function parseLMS(raw) {
+  const lines = raw
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l && !l.startsWith('//'));
 
-const parseLmsTable = (raw) => {
-  const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean);
-  const out = [];
+  const data = [];
   for (const line of lines) {
-    if (line.toLowerCase().startsWith("month")) continue;
-    const m = line.match(/(\d+)\s+([-\d\/\.]+)\s+([-\d\/\.]+)\s+([-\d\/\.]+)/);
-    if (!m) continue;
-    out.push({
-      month: parseInt(m[1], 10),
-      L: toNumber(m[2]),
-      M: toNumber(m[3]),
-      S: toNumber(m[4]),
-    });
+    const parts = line.split(/[,;\t ]+/).filter(Boolean);
+    if (parts.length < 4) continue;
+
+    const age = parseFloat(parts[0]);
+    const L = parseFloat(parts[1].replace('/', '.'));
+    const M = parseFloat(parts[2].replace('/', '.'));
+    const S = parseFloat(parts[3].replace('/', '.'));
+
+    if (isFinite(age) && isFinite(L) && isFinite(M) && isFinite(S)) {
+      data.push({ age, L, M, S });
+    }
   }
-  return out;
-};
+  // مرتب‌سازی بر اساس سن
+  data.sort((a,b) => a.age - b.age);
+  return data;
+}
 
-const LMS_GIRLS = parseLmsTable(LMS_RAW_GIRLS);
-const LMS_BOYS = parseLmsTable(LMS_RAW_BOYS);
+const LMS_GIRLS = parseLMS(LMS_GIRLS_RAW);
+const LMS_BOYS = parseLMS(LMS_BOYS_RAW);
 
-const clamp = (x, min, max) => Math.max(min, Math.min(max, x));
+/*************************************
+ * 3) توابع جلالی ⇄ میلادی (بدون کتابخانه)
+ *    برگرفته از الگوریتم استاندارد Jalaali
+ *************************************/
+function div(a, b) { return ~~(a / b); }
 
-const ageInMonths = (birthDate, refDate) => {
-  const b = new Date(birthDate);
-  const r = new Date(refDate);
-  const diffDays = (r - b) / (1000 * 60 * 60 * 24);
-  const avgDaysPerMonth = 365.2425 / 12;
-  return diffDays / avgDaysPerMonth;
-};
+function g2d(gy, gm, gd) {
+  let d = div((gy + div(gm - 8, 6) + 100100) * 1461, 4)
+    + div(153 * ((gm + 9) % 12) + 2, 5)
+    + gd - 34840408;
+  d = d - div(div(gy + 100100 + div(gm - 8, 6), 100) * 3, 4) + 752;
+  return d;
+}
 
-const getLmsForAge = (sex, ageMonths) => {
-  const data = sex === "female" ? LMS_GIRLS : LMS_BOYS;
-  const minM = data[0].month;
-  const maxM = data[data.length - 1].month;
+function d2g(jdn) {
+  let j = 4 * jdn + 139361631;
+  j = j + div(div(4 * jdn + 183187720, 146097) * 3, 4) * 4 - 3908;
+  let i = div((j % 1461), 4) * 5 + 308;
+  let gd = div((i % 153), 5) + 1;
+  let gm = div(i, 153) % 12 + 1;
+  let gy = div(j, 1461) - 100100 + div(8 - gm, 6);
+  return { gy, gm, gd };
+}
 
-  const age = clamp(ageMonths, minM, maxM);
-  const m1 = Math.floor(age);
-  const m2 = Math.ceil(age);
+function j2d(jy, jm, jd) {
+  jy += 1595;
+  let days = -355668 + (365 * jy) + div(jy, 33) * 8 + div((jy % 33 + 3), 4)
+    + jd + (jm < 7 ? (jm - 1) * 31 : (jm - 7) * 30 + 186);
+  return days;
+}
 
-  const d1 = data.find((d) => d.month === m1);
-  const d2 = data.find((d) => d.month === m2);
-
-  if (!d1 || !d2 || m1 === m2) return d1 || d2;
-
-  const t = (age - m1) / (m2 - m1);
-  return {
-    month: age,
-    L: d1.L + (d2.L - d1.L) * t,
-    M: d1.M + (d2.M - d1.M) * t,
-    S: d1.S + (d2.S - d1.S) * t,
-  };
-};
-
-const calcBMI = (weightKg, heightCm) => {
-  const h = heightCm / 100;
-  return weightKg / (h * h);
-};
-
-const calcZScore = (x, L, M, S) => {
-  if (L === 0) return Math.log(x / M) / S;
-  return (Math.pow(x / M, L) - 1) / (L * S);
-};
-
-const zToPercentile = (z) => {
-  const erf = (x) => {
-    const sign = x >= 0 ? 1 : -1;
-    x = Math.abs(x);
-    const a1 = 0.254829592;
-    const a2 = -0.284496736;
-    const a3 = 1.421413741;
-    const a4 = -1.453152027;
-    const a5 = 1.061405429;
-    const p = 0.3275911;
-    const t = 1 / (1 + p * x);
-    const y =
-      1 -
-      (((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t) * Math.exp(-x * x);
-    return sign * y;
-  };
-  const pct = 50 * (1 + erf(z / Math.SQRT2));
-  return clamp(pct, 0, 100);
-};
-
-const bmiStatusByZ = (z) => {
-  if (z < -3) return "لاغری شدید";
-  if (z >= -3 && z < -2) return "لاغری";
-  if (z >= -2 && z <= 1) return "نرمال";
-  if (z > 1 && z <= 2) return "اضافه‌وزن";
-  if (z > 2 && z <= 3) return "چاقی";
-  return "چاقی شدید";
-};
-
-const bmiStatusAdult = (bmi) => {
-  if (bmi < 18.5) return "کم‌وزن";
-  if (bmi < 25) return "نرمال";
-  if (bmi < 30) return "اضافه‌وزن";
-  if (bmi < 35) return "چاقی درجه ۱";
-  if (bmi < 40) return "چاقی درجه ۲";
-  return "چاقی درجه ۳";
-};
-
-const calcBMR = (sex, weightKg, heightCm, ageYears) => {
-  if (sex === "male") {
-    return 10 * weightKg + 6.25 * heightCm - 5 * ageYears + 5;
-  }
-  return 10 * weightKg + 6.25 * heightCm - 5 * ageYears - 161;
-};
-
-const activityFactor = (level) => {
-  const map = {
-    sedentary: 1.2,
-    light: 1.375,
-    moderate: 1.55,
-    active: 1.725,
-    very_active: 1.9,
-  };
-  return map[level] || 1.2;
-};
-
-const calcTargets = (tdee) => ({
-  maintenance: Math.round(tdee),
-  gain: Math.round(tdee * 1.1),
-  muscle: Math.round(tdee * 1.15),
-  loss: Math.round(tdee * 0.85),
-});
-
-const buildRecommendations = ({ ageYears, status, goal, tdee }) => {
-  const recs = [];
-  recs.push("روزانه حداقل ۷–۸ لیوان آب بنوشید.");
-  recs.push("پروتئین کافی را در هر وعده حفظ کنید.");
-  recs.push("خواب ۷–۹ ساعته منظم کیفیت متابولیسم را بهبود می‌دهد.");
-
-  if (status.includes("لاغری")) {
-    recs.push("افزایش کالری تدریجی و وعده‌های متعدد مفید است.");
-    recs.push("تمرینات قدرتی سبک برای ساخت بافت عضلانی توصیه می‌شود.");
-  } else if (status.includes("اضافه‌وزن") || status.includes("چاقی")) {
-    recs.push("کاهش کالری کنترل‌شده به‌همراه تمرین هوازی و قدرتی توصیه می‌شود.");
-    recs.push("مصرف نوشیدنی‌های قندی و غذاهای فراوری‌شده را کاهش دهید.");
+function d2j(jdn) {
+  const g = d2g(jdn);
+  let jy = g.gy - 621;
+  const r = j2d(jy, 1, 1);
+  let k = jdn - r;
+  let jm, jd;
+  if (k >= 0) {
+    if (k <= 185) {
+      jm = 1 + div(k, 31);
+      jd = (k % 31) + 1;
+      return { jy, jm, jd };
+    } else {
+      k -= 186;
+    }
   } else {
-    recs.push("برای حفظ وضعیت، تعادل کالری و تحرک را پایدار نگه دارید.");
+    jy -= 1;
+    k += 179;
+    if (k <= 185) {
+      jm = 1 + div(k, 31);
+      jd = (k % 31) + 1;
+      return { jy, jm, jd };
+    } else {
+      k -= 186;
+    }
   }
-
-  if (goal === "muscle") {
-    recs.push("برای عضله‌سازی، افزایش کالری ملایم و تمرین قدرتی ضروری است.");
-  } else if (goal === "fatloss") {
-    recs.push("کاهش آرام کالری برای حفظ عضله مناسب‌تر است.");
-  } else if (goal === "gain") {
-    recs.push("افزایش وزن با غذاهای مغذی انجام شود.");
-  }
-
-  if (ageYears < 18) {
-    recs.push("برای نوجوانان، کاهش یا افزایش شدید کالری توصیه نمی‌شود.");
-  }
-
-  recs.push(`TDEE تقریبی شما ${Math.round(tdee)} کیلوکالری است.`);
-  return recs;
-};
-
-// =======================
-// JALALI DATE UTILS
-// =======================
-const parseJalali = (s) => {
-  if (!s) return null;
-  const parts = s.replace(/-/g, "/").split("/").map((p) => p.trim());
-  if (parts.length !== 3) return null;
-  const jy = parseInt(parts[0], 10);
-  const jm = parseInt(parts[1], 10);
-  const jd = parseInt(parts[2], 10);
-  if (!jy || !jm || !jd) return null;
+  jm = 7 + div(k, 30);
+  jd = (k % 30) + 1;
   return { jy, jm, jd };
-};
+}
 
-const div = (a, b) => Math.floor(a / b);
+function toGregorian(jy, jm, jd) {
+  return d2g(j2d(jy, jm, jd));
+}
 
-const jalCal = (jy) => {
-  const breaks = [
-    -61, 9, 38, 199, 426, 686, 756, 818,
-    1111, 1181, 1210, 1635, 2060, 2097,
-    2192, 2262, 2324, 2394, 2456, 3178
-  ];
-  let bl = breaks.length;
-  let gy = jy + 621;
-  let leapJ = -14;
-  let jp = breaks[0];
-  let jm, jump, leap, leapG, march, n, i;
+function toJalali(gy, gm, gd) {
+  return d2j(g2d(gy, gm, gd));
+}
 
-  if (jy < jp || jy >= breaks[bl - 1]) return { leap: false, gy, march: 0 };
+/*************************************
+ * 4) ابزارهای کمکی
+ *************************************/
+const $ = id => document.getElementById(id);
 
-  for (i = 1; i < bl; i += 1) {
-    jm = breaks[i];
-    jump = jm - jp;
-    if (jy < jm) break;
-    leapJ = leapJ + div(jump, 33) * 8 + div((jump % 33), 4);
-    jp = jm;
+function showAlert(msg) {
+  const box = $('alertBox');
+  box.textContent = msg;
+  box.classList.remove('hidden');
+}
+function hideAlert() {
+  $('alertBox').classList.add('hidden');
+}
+
+function pad2(n) {
+  return n.toString().padStart(2, '0');
+}
+
+function formatJalali(jy, jm, jd) {
+  return `${jy}/${pad2(jm)}/${pad2(jd)}`;
+}
+
+function parseJalali(str) {
+  const m = str.trim().match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if (!m) return null;
+  const jy = +m[1], jm = +m[2], jd = +m[3];
+  if (jm < 1 || jm > 12 || jd < 1 || jd > 31) return null;
+  return { jy, jm, jd };
+}
+
+function createUTCDate(y, m, d) {
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+function ageFromDates(birthG, measureG) {
+  const b = createUTCDate(birthG.gy, birthG.gm, birthG.gd);
+  const m = createUTCDate(measureG.gy, measureG.gm, measureG.gd);
+  const diffDays = (m - b) / 86400000;
+  if (diffDays < 0) return null;
+  const ageMonths = diffDays / 30.4375;
+  const ageYears = diffDays / 365.25;
+  return { ageMonths, ageYears };
+}
+
+/*************************************
+ * 5) محاسبات LMS
+ *************************************/
+function findLMS(ageMonths, data) {
+  if (!data || data.length === 0) return null;
+
+  // اگر دقیقاً برابر باشد
+  for (const row of data) {
+    if (row.age === ageMonths) return row;
   }
-  n = jy - jp;
-  leapJ = leapJ + div(n, 33) * 8 + div(((n % 33) + 3), 4);
-  if ((jump % 33) === 4 && (jump - n) === 4) leapJ += 1;
 
-  leapG = div(gy, 4) - div((div(gy, 100) + 1) * 3, 4) - 150;
-  march = 20 + leapJ - leapG;
+  // پیدا کردن بازه
+  let lower = null, upper = null;
+  for (const row of data) {
+    if (row.age <= ageMonths) lower = row;
+    if (row.age >= ageMonths) { upper = row; break; }
+  }
+  if (!lower || !upper) return null;
+  if (lower.age === upper.age) return lower;
 
-  if (jump - n < 6) n = n - jump + div(jump + 4, 33) * 33;
-  leap = (((n + 1) % 33) - 1) % 4;
-  if (leap === -1) leap = 4;
-
-  return { leap: leap === 0, gy, march };
-};
-
-const isLeapJalali = (jy) => jalCal(jy).leap;
-
-const jalaliMonthLength = (jy, jm) => {
-  if (jm <= 6) return 31;
-  if (jm <= 11) return 30;
-  return isLeapJalali(jy) ? 30 : 29;
-};
-
-const isValidJalali = (jy, jm, jd) => {
-  if (jm < 1 || jm > 12) return false;
-  if (jd < 1 || jd > jalaliMonthLength(jy, jm)) return false;
-  return true;
-};
-
-const jalaliToGregorian = (jy, jm, jd) => {
-  const r = jalCal(jy);
-  const gy = r.gy;
-  const march = r.march;
-
-  let jdn = (gy + div(gy, 4) - div(gy, 100) + div(gy, 400) + 1721425) + (march - 1);
-  jdn += (jm <= 7) ? ((jm - 1) * 31) : ((jm - 7) * 30 + 186);
-  jdn += (jd - 1);
-
-  let depoch = jdn - 1721425;
-  let quadricent = div(depoch, 146097);
-  let dqc = depoch % 146097;
-  let cent = div(dqc, 36524);
-  let dcent = dqc % 36524;
-  let quad = div(dcent, 1461);
-  let dquad = dcent % 1461;
-  let yindex = div(dquad, 365);
-  let gy2 = quadricent * 400 + cent * 100 + quad * 4 + yindex;
-  if (!(cent === 4 || yindex === 4)) gy2 += 1;
-
-  let yearday = jdn - (1721425 + gy2 + div(gy2, 4) - div(gy2, 100) + div(gy2, 400));
-  let leap = ((gy2 % 4 === 0 && gy2 % 100 !== 0) || (gy2 % 400 === 0));
-  let gd, gm;
-  if (yearday < 31) { gm = 1; gd = yearday + 1; }
-  else if (yearday < 59 + (leap ? 1 : 0)) { gm = 2; gd = yearday - 31 + 1; }
-  else if (yearday < 90 + (leap ? 1 : 0)) { gm = 3; gd = yearday - 59 - (leap ? 1 : 0) + 1; }
-  else if (yearday < 120 + (leap ? 1 : 0)) { gm = 4; gd = yearday - 90 - (leap ? 1 : 0) + 1; }
-  else if (yearday < 151 + (leap ? 1 : 0)) { gm = 5; gd = yearday - 120 - (leap ? 1 : 0) + 1; }
-  else if (yearday < 181 + (leap ? 1 : 0)) { gm = 6; gd = yearday - 151 - (leap ? 1 : 0) + 1; }
-  else if (yearday < 212 + (leap ? 1 : 0)) { gm = 7; gd = yearday - 181 - (leap ? 1 : 0) + 1; }
-  else if (yearday < 243 + (leap ? 1 : 0)) { gm = 8; gd = yearday - 212 - (leap ? 1 : 0) + 1; }
-  else if (yearday < 273 + (leap ? 1 : 0)) { gm = 9; gd = yearday - 243 - (leap ? 1 : 0) + 1; }
-  else if (yearday < 304 + (leap ? 1 : 0)) { gm = 10; gd = yearday - 273 - (leap ? 1 : 0) + 1; }
-  else if (yearday < 334 + (leap ? 1 : 0)) { gm = 11; gd = yearday - 304 - (leap ? 1 : 0) + 1; }
-  else { gm = 12; gd = yearday - 334 - (leap ? 1 : 0) + 1; }
-
-  return { gy: gy2, gm, gd };
-};
-
-const jalaliToDate = (jStr) => {
-  const p = parseJalali(jStr);
-  if (!p) return null;
-  const { jy, jm, jd } = p;
-  if (!isValidJalali(jy, jm, jd)) return null;
-  const g = jalaliToGregorian(jy, jm, jd);
-  return new Date(`${g.gy}-${String(g.gm).padStart(2,"0")}-${String(g.gd).padStart(2,"0")}T00:00:00`);
-};
-
-// =======================
-// MAIN COMPUTE
-// =======================
-const computeAll = ({
-  sex,
-  weightKg,
-  heightCm,
-  birthDate,
-  refDate,
-  activityLevel,
-  goal,
-}) => {
-  const ageMonths = ageInMonths(birthDate, refDate);
-  const ageYears = ageMonths / 12;
-
-  const bmi = calcBMI(weightKg, heightCm);
-  const lms = getLmsForAge(sex, ageMonths);
-  const z = calcZScore(bmi, lms.L, lms.M, lms.S);
-  const percentile = zToPercentile(z);
-
-  const status =
-    ageMonths >= 61 && ageMonths <= 228
-      ? bmiStatusByZ(z)
-      : bmiStatusAdult(bmi);
-
-  const bmr = calcBMR(sex, weightKg, heightCm, ageYears);
-  const tdee = bmr * activityFactor(activityLevel);
-  const targets = calcTargets(tdee);
-
-  const recs = buildRecommendations({ ageYears, status, goal, tdee });
-
+  // اینترپولیشن خطی
+  const t = (ageMonths - lower.age) / (upper.age - lower.age);
   return {
-    ageMonths: parseFloat(ageMonths.toFixed(2)),
-    ageYears: parseFloat(ageYears.toFixed(2)),
-    bmi: parseFloat(bmi.toFixed(2)),
-    zScore: parseFloat(z.toFixed(2)),
-    percentile: parseFloat(percentile.toFixed(1)),
-    status,
-    bmr: Math.round(bmr),
-    tdee: Math.round(tdee),
-    targets,
-    recommendations: recs,
+    age: ageMonths,
+    L: lower.L + (upper.L - lower.L) * t,
+    M: lower.M + (upper.M - lower.M) * t,
+    S: lower.S + (upper.S - lower.S) * t
   };
-};
+}
 
-// =======================
-// UI WIRING
-// =======================
-const $ = (id) => document.getElementById(id);
-let lastResult = null;
+function calcZscore(value, L, M, S) {
+  if (L === 0) {
+    return Math.log(value / M) / S;
+  }
+  return (Math.pow(value / M, L) - 1) / (L * S);
+}
 
-const showError = (msg) => {
-  $("error").textContent = msg || "";
-};
+function erf(x) {
+  // تقریب Abramowitz and Stegun
+  const sign = x < 0 ? -1 : 1;
+  x = Math.abs(x);
+  const a1 = 0.254829592;
+  const a2 = -0.284496736;
+  const a3 = 1.421413741;
+  const a4 = -1.453152027;
+  const a5 = 1.061405429;
+  const p = 0.3275911;
+  const t = 1 / (1 + p * x);
+  const y = 1 - (((((a5*t + a4)*t) + a3)*t + a2)*t + a1)*t*Math.exp(-x*x);
+  return sign * y;
+}
 
-const initDatePickers = () => {
-  if (!window.$ || !$.fn.persianDatepicker) return;
-  $("#birthJ").persianDatepicker({
-    format: "YYYY/MM/DD",
-    initialValue: false,
-    autoClose: true,
-  });
-  $("#refJ").persianDatepicker({
-    format: "YYYY/MM/DD",
-    initialValue: false,
-    autoClose: true,
-  });
-};
+function zToPercentile(z) {
+  const p = 0.5 * (1 + erf(z / Math.SQRT2)) * 100;
+  return Math.max(0, Math.min(100, p));
+}
 
-const updatePrintSection = (result, birthJ, refJ) => {
-  $("p_reportDate").textContent = refJ;
-  $("p_birth").textContent = birthJ;
+function statusFromZ(z) {
+  if (z < -3) return "خیلی کم‌وزن";
+  if (z < -2) return "کم‌وزن";
+  if (z < 1) return "طبیعی";
+  if (z < 2) return "اضافه‌وزن";
+  if (z < 3) return "چاقی";
+  return "چاقی شدید";
+}
 
-  $("p_ageYears").textContent = result.ageYears;
-  $("p_ageMonths").textContent = result.ageMonths;
-  $("p_bmi").textContent = result.bmi;
-  $("p_z").textContent = result.zScore;
-  $("p_pct").textContent = result.percentile + " %";
-  $("p_status").textContent = result.status;
-  $("p_bmr").textContent = result.bmr;
-  $("p_tdee").textContent = result.tdee;
+/*************************************
+ * 6) محاسبات انرژی
+ *************************************/
+function calcBMR(weight, height, ageYears, gender) {
+  // فرمول Mifflin-St Jeor
+  const s = gender === 'boy' ? 5 : -161;
+  return 10 * weight + 6.25 * height - 5 * ageYears + s;
+}
 
-  $("p_maint").textContent = result.targets.maintenance;
-  $("p_gain").textContent = result.targets.gain;
-  $("p_muscle").textContent = result.targets.muscle;
-  $("p_loss").textContent = result.targets.loss;
+/*************************************
+ * 7) تولید توصیه‌ها
+ *************************************/
+function buildTips(status) {
+  const tips = [];
+  tips.push("نتایج صرفاً جنبه کمک‌محاسباتی دارند و جایگزین نظر پزشک نیستند.");
+  if (status === "خیلی کم‌وزن" || status === "کم‌وزن") {
+    tips.push("افزایش تدریجی کالری با تمرکز بر پروتئین و کربوهیدرات پیچیده.");
+    tips.push("بررسی کمبودهای تغذیه‌ای و پایش رشد ماهانه.");
+  } else if (status === "طبیعی") {
+    tips.push("حفظ الگوی تغذیه متعادل و تحرک منظم.");
+    tips.push("پایش دوره‌ای رشد برای حفظ وضعیت سالم.");
+  } else {
+    tips.push("کاهش مصرف قندها و چربی‌های اشباع.");
+    tips.push("افزایش فعالیت بدنی روزانه با برنامه منظم.");
+  }
+  return tips;
+}
 
-  const list = $("p_recs");
-  list.innerHTML = "";
-  result.recommendations.forEach((r) => {
-    const li = document.createElement("li");
-    li.textContent = r;
-    list.appendChild(li);
-  });
-};
+/*************************************
+ * 8) اجرای محاسبات اصلی
+ *************************************/
+function computeAll() {
+  hideAlert();
 
-$("calcBtn").addEventListener("click", () => {
-  showError("");
+  const name = $('fullName').value.trim();
+  const gender = $('gender').value;
+  const birthJ = $('birthJalali').value.trim();
+  let measureJ = $('measureJalali').value.trim();
+  const height = parseFloat($('heightCm').value);
+  const weight = parseFloat($('weightKg').value);
+  const activity = parseFloat($('activity').value);
 
-  const sex = $("sex").value;
-  const weightKg = parseFloat($("weight").value);
-  const heightCm = parseFloat($("height").value);
-  const birthJ = $("birthJ").value;
-  const refJ = $("refJ").value;
-  const activityLevel = $("activity").value;
-  const goal = $("goal").value;
+  if (!birthJ) return showAlert("تاریخ تولد وارد نشده است.");
+  if (isNaN(height) || height <= 0) return showAlert("قد نامعتبر است.");
+  if (isNaN(weight) || weight <= 0) return showAlert("وزن نامعتبر است.");
 
-  if (!weightKg || !heightCm || !birthJ || !refJ) {
-    showError("لطفاً همه فیلدهای ضروری را پر کنید.");
-    return;
+  // اگر تاریخ اندازه‌گیری خالی است، امروز شمسی بگذار
+  if (!measureJ) {
+    const today = new Date();
+    const j = toJalali(today.getFullYear(), today.getMonth() + 1, today.getDate());
+    measureJ = formatJalali(j.jy, j.jm, j.jd);
+    $('measureJalali').value = measureJ;
   }
 
-  const birthDate = jalaliToDate(birthJ);
-  const refDate = jalaliToDate(refJ);
+  const birthParsed = parseJalali(birthJ);
+  const measureParsed = parseJalali(measureJ);
+  if (!birthParsed || !measureParsed) return showAlert("فرمت تاریخ شمسی اشتباه است. (مثال: 1400/01/15)");
 
-  if (!birthDate || !refDate) {
-    showError("تاریخ شمسی نامعتبر است. قالب صحیح: YYYY/MM/DD");
-    return;
-  }
+  const birthG = toGregorian(birthParsed.jy, birthParsed.jm, birthParsed.jd);
+  const measureG = toGregorian(measureParsed.jy, measureParsed.jm, measureParsed.jd);
 
-  if (refDate <= birthDate) {
-    showError("تاریخ محاسبه باید بعد از تاریخ تولد باشد.");
-    return;
-  }
+  const age = ageFromDates(birthG, measureG);
+  if (!age) return showAlert("تاریخ اندازه‌گیری قبل از تولد است.");
 
-  const result = computeAll({
-    sex,
-    weightKg,
-    heightCm,
-    birthDate,
-    refDate,
-    activityLevel,
-    goal,
+  const bmi = weight / Math.pow(height / 100, 2);
+
+  const data = gender === 'boy' ? LMS_BOYS : LMS_GIRLS;
+  if (!data || data.length === 0) return showAlert("داده‌های LMS وارد نشده‌اند.");
+
+  const lmsRow = findLMS(age.ageMonths, data);
+  if (!lmsRow) return showAlert("سن خارج از محدوده داده‌های LMS است.");
+
+  const z = calcZscore(bmi, lmsRow.L, lmsRow.M, lmsRow.S);
+  const pct = zToPercentile(z);
+  const status = statusFromZ(z);
+
+  const bmr = calcBMR(weight, height, age.ageYears, gender);
+  const tdee = bmr * activity;
+
+  // نمایش نتایج
+  $('ageYears').textContent = age.ageYears.toFixed(2);
+  $('ageMonths').textContent = age.ageMonths.toFixed(1);
+  $('bmi').textContent = bmi.toFixed(2);
+  $('zscore').textContent = z.toFixed(2);
+  $('percentile').textContent = pct.toFixed(1) + "٪";
+  $('status').textContent = status;
+  $('bmr').textContent = bmr.toFixed(0) + " kcal";
+  $('tdee').textContent = tdee.toFixed(0) + " kcal";
+
+  // توصیه‌ها
+  const tips = buildTips(status);
+  const tipsUL = $('tips');
+  tipsUL.innerHTML = "";
+  tips.forEach(t => {
+    const li = document.createElement('li');
+    li.textContent = t;
+    tipsUL.appendChild(li);
   });
 
-  lastResult = result;
+  // چاپ
+  $('p_name').textContent = name || "—";
+  $('p_gender').textContent = gender === 'boy' ? "پسر" : "دختر";
+  $('p_birth').textContent = birthJ;
+  $('p_measure').textContent = measureJ;
+  $('p_ageYears').textContent = age.ageYears.toFixed(2);
+  $('p_ageMonths').textContent = age.ageMonths.toFixed(1);
+  $('p_height').textContent = height + " cm";
+  $('p_weight').textContent = weight + " kg";
+  $('p_bmi').textContent = bmi.toFixed(2);
+  $('p_z').textContent = z.toFixed(2);
+  $('p_pct').textContent = pct.toFixed(1) + "٪";
+  $('p_status').textContent = status;
+  $('p_bmr').textContent = bmr.toFixed(0) + " kcal";
+  $('p_tdee').textContent = tdee.toFixed(0) + " kcal";
 
-  $("ageYears").textContent = result.ageYears;
-  $("ageMonths").textContent = result.ageMonths;
-  $("bmi").textContent = result.bmi;
-  $("zScore").textContent = result.zScore;
-  $("percentile").textContent = result.percentile + " %";
-  $("status").textContent = result.status;
-  $("bmr").textContent = result.bmr + " kcal";
-  $("tdee").textContent = result.tdee + " kcal";
-
-  $("t_maint").textContent = result.targets.maintenance;
-  $("t_gain").textContent = result.targets.gain;
-  $("t_muscle").textContent = result.targets.muscle;
-  $("t_loss").textContent = result.targets.loss;
-
-  const list = $("recsList");
-  list.innerHTML = "";
-  result.recommendations.forEach((r) => {
-    const li = document.createElement("li");
-    li.textContent = r;
-    list.appendChild(li);
+  const pTips = $('p_tips');
+  pTips.innerHTML = "";
+  tips.forEach(t => {
+    const li = document.createElement('li');
+    li.textContent = t;
+    pTips.appendChild(li);
   });
+}
 
-  updatePrintSection(result, birthJ, refJ);
+/*************************************
+ * 9) رویدادها
+ *************************************/
+document.addEventListener('DOMContentLoaded', () => {
+  $('btnCalc').addEventListener('click', computeAll);
+  $('btnReset').addEventListener('click', () => {
+    document.querySelectorAll('input').forEach(i => i.value = "");
+    hideAlert();
+  });
+  $('btnPrint').addEventListener('click', () => window.print());
+
+  // مقداردهی تاریخ امروز شمسی
+  const today = new Date();
+  const j = toJalali(today.getFullYear(), today.getMonth() + 1, today.getDate());
+  $('measureJalali').value = formatJalali(j.jy, j.jm, j.jd);
 });
-
-$("pdfBtn").addEventListener("click", () => {
-  if (!lastResult) {
-    showError("ابتدا محاسبه را انجام دهید.");
-    return;
-  }
-  showError("");
-
-  const element = $("printSection");
-  const opt = {
-    margin: 10,
-    filename: "گزارش-شاخص-بدنی.pdf",
-    image: { type: "jpeg", quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true },
-    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
-  };
-  html2pdf().set(opt).from(element).save();
-});
-
-$("printBtn").addEventListener("click", () => {
-  if (!lastResult) {
-    showError("ابتدا محاسبه را انجام دهید.");
-    return;
-  }
-  showError("");
-  window.print();
-});
-
-initDatePickers();
