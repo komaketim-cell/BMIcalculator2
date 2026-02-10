@@ -1,5 +1,5 @@
 /*************************************
- * 1) داده‌های LMS (اینجا قرار دهید)
+ * 1) داده‌های LMS (در صورت نیاز جایگزین کنید)
  *************************************/
 const LMS_GIRLS_RAW = `
 Month	L	M	S
@@ -636,7 +636,6 @@ function buildTips(status, ageGroup) {
 function computeAll() {
   hideAlert();
 
-  const name = $('fullName').value.trim();
   const gender = $('gender').value;
   const birthYear = parseInt($('birthYear').value, 10);
   const birthMonth = parseInt($('birthMonth').value, 10);
@@ -722,7 +721,6 @@ function computeAll() {
 
   const birthFormatted = formatJalali(birthYear, birthMonth, birthDay);
 
-  $('p_name').textContent = name || "—";
   $('p_gender').textContent = gender === 'boy' ? "پسر" : "دختر";
   $('p_birth').textContent = birthFormatted;
   $('p_ageYears').textContent = age.ageYears.toFixed(2);
@@ -737,6 +735,7 @@ function computeAll() {
   $('p_tdee').textContent = tdee.toFixed(0) + " kcal";
 
   const pTips = $('p_tips');
+t;
   pTips.innerHTML = "";
   tips.forEach(t => {
     const li = document.createElement('li');
@@ -822,7 +821,6 @@ function initBirthDateControls() {
  * 10) رویدادها
  *************************************/
 function resetForm() {
-  $('fullName').value = "";
   $('gender').value = "boy";
   $('birthYear').value = "";
   $('birthMonth').value = "";
@@ -844,7 +842,6 @@ function resetForm() {
   $('tdee').textContent = "—";
   $('tips').innerHTML = '<li>برای مشاهده توصیه‌ها ابتدا محاسبه را انجام دهید.</li>';
 
-  $('p_name').textContent = "—";
   $('p_gender').textContent = "—";
   $('p_birth').textContent = "—";
   $('p_ageYears').textContent = "—";
