@@ -227,7 +227,6 @@ body {
   color: #666;
 }
 
-/* چاپ */
 @media print {
   body * {
     visibility: hidden;
